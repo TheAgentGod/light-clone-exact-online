@@ -4,6 +4,7 @@ import asyncio
 import os
 import csv
 import io
+import json
 import shutil
 import time
 import uuid
@@ -28,6 +29,38 @@ FRONTEND_DIST = BASE.parent / "frontend" / "dist"
 CONCURRENCY = int(os.environ.get("LIGHT_CLONE_CONCURRENCY", "1"))
 
 STATE: dict[str, dict] = {}
+
+
+def meta_path(batch_id: str) -> Path:
+    return OUTPUTS / batch_id / "batch.json"
+
+
+def save_batch(batch: dict) -> None:
+    """Persiste el lote en disco: el estado sobrevive a un reinicio del servidor."""
+    try:
+        path = meta_path(batch["id"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(batch), encoding="utf-8")
+    except Exception as error:
+        print(f"[state] no se pudo guardar el lote {batch.get('id')}: {error}")
+
+
+def get_batch(batch_id: str) -> dict:
+    batch = STATE.get(batch_id)
+    if batch:
+        return batch
+    if not batch_id or "/" in batch_id or ".." in batch_id:
+        raise HTTPException(status_code=404, detail="Lote inexistente")
+    path = meta_path(batch_id)
+    if path.exists():
+        try:
+            batch = json.loads(path.read_text(encoding="utf-8"))
+            batch["processing"] = False
+            STATE[batch_id] = batch
+            return batch
+        except Exception as error:
+            print(f"[state] lote {batch_id} ilegible: {error}")
+    raise HTTPException(status_code=404, detail="Lote inexistente")
 SELFTEST: dict = {"ok": False, "checks": [], "ran": False}
 
 
@@ -111,14 +144,14 @@ async def upload(files: list[UploadFile]):
             }
         )
 
-    STATE[batch_id] = {"id": batch_id, "items": items, "rejected": rejected, "processing": False}
+    batch = {"id": batch_id, "items": items, "rejected": rejected, "processing": False}
+    STATE[batch_id] = batch
+    save_batch(batch)
     return public_batch(batch_id)
 
 
 def public_batch(batch_id: str) -> dict:
-    batch = STATE.get(batch_id)
-    if not batch:
-        raise HTTPException(status_code=404, detail="Lote inexistente")
+    batch = get_batch(batch_id)
     items = [{k: v for k, v in item.items() if k != "stored_path"} for item in batch["items"]]
     done = sum(1 for i in items if i["status"] == "completada")
     failed = sum(1 for i in items if i["status"] == "error")
@@ -160,9 +193,7 @@ def process_one(item: dict, out_dir: Path) -> None:
 @app.post("/api/batches/{batch_id}/process")
 async def process_batch(batch_id: str):
     require_selftest()
-    batch = STATE.get(batch_id)
-    if not batch:
-        raise HTTPException(status_code=404, detail="Lote inexistente")
+    batch = get_batch(batch_id)
     if batch["processing"]:
         return public_batch(batch_id)
 
@@ -176,11 +207,13 @@ async def process_batch(batch_id: str):
         async with semaphore:
             item["status"] = "procesando"
             await asyncio.to_thread(process_one, item, out_dir)
+            save_batch(batch)
 
     try:
         await asyncio.gather(*(run(item) for item in pending))
     finally:
         batch["processing"] = False
+        save_batch(batch)
     return public_batch(batch_id)
 
 
@@ -242,9 +275,7 @@ def build_csv(batch: dict) -> str:
 
 @app.get("/api/download/{batch_id}")
 def download_zip(batch_id: str):
-    batch = STATE.get(batch_id)
-    if not batch:
-        raise HTTPException(status_code=404, detail="Lote inexistente")
+    batch = get_batch(batch_id)
     out_dir = OUTPUTS / batch_id
     buffer = io.BytesIO()
     # ZIP_STORED: los JPEG viajan sin recomprimir ni alterar un solo byte.
