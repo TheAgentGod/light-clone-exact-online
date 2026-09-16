@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import csv
 import io
 import shutil
@@ -24,7 +25,7 @@ UPLOADS = WORK / "uploads"
 OUTPUTS = WORK / "outputs"
 FRONTEND_DIST = BASE.parent / "frontend" / "dist"
 
-CONCURRENCY = 2
+CONCURRENCY = int(os.environ.get("LIGHT_CLONE_CONCURRENCY", "1"))
 
 STATE: dict[str, dict] = {}
 SELFTEST: dict = {"ok": False, "checks": [], "ran": False}
