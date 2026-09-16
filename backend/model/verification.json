@@ -1,0 +1,16 @@
+[
+  {
+    "output": "selftest_A.jpg",
+    "reference": "test_A_clone.jpg",
+    "sha256_output": "d56f7fcba4448046b2b115f0360d13474793a668d4f3f7342ab9e3854d0c4af7",
+    "sha256_reference": "d56f7fcba4448046b2b115f0360d13474793a668d4f3f7342ab9e3854d0c4af7",
+    "byte_identical": true
+  },
+  {
+    "output": "selftest_B.jpg",
+    "reference": "test_B_clone.jpg",
+    "sha256_output": "e2fd3f112f0dc0a76c3881548f63133a72fd044b863c54a775cbfd38ee23d094",
+    "sha256_reference": "e2fd3f112f0dc0a76c3881548f63133a72fd044b863c54a775cbfd38ee23d094",
+    "byte_identical": true
+  }
+]
