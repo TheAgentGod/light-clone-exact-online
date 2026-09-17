@@ -110,27 +110,53 @@ def selftest():
 
 
 @app.post("/api/upload")
-async def upload(files: list[UploadFile]):
+async def upload(
+    files: list[UploadFile],
+    batch_id: str | None = None,
+    upload_id: str | None = None,
+):
     require_selftest()
-    batch_id = uuid.uuid4().hex[:12]
+    if batch_id is not None and (len(batch_id) != 12 or not batch_id.isalnum()):
+        raise HTTPException(status_code=400, detail="Identificador de lote invalido")
+
+    if batch_id is None:
+        batch_id = uuid.uuid4().hex[:12]
+        batch = {"id": batch_id, "items": [], "rejected": [], "processing": False}
+        STATE[batch_id] = batch
+    else:
+        try:
+            batch = resolve_batch(batch_id)
+        except HTTPException as error:
+            if error.status_code != 404:
+                raise
+            batch = {"id": batch_id, "items": [], "rejected": [], "processing": False}
+            STATE[batch_id] = batch
+
+    if batch["processing"]:
+        raise HTTPException(status_code=409, detail="El lote ya se esta procesando")
+    if upload_id and any(item.get("upload_id") == upload_id for item in batch["items"]):
+        return public_batch(batch_id)
+
     batch_dir = UPLOADS / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
-    items: list[dict] = []
-    rejected: list[dict] = []
-    taken: set[str] = set()
+    items: list[dict] = batch["items"]
+    rejected: list[dict] = batch["rejected"]
+    taken = {item["output_file"] for item in items}
+    base_index = len(items) + len(rejected)
 
-    for index, upload_file in enumerate(files):
+    for offset, upload_file in enumerate(files):
         data = await upload_file.read()
         problem = check_upload(upload_file.filename or "", upload_file.content_type, len(data))
         if problem:
             rejected.append({"input_file": upload_file.filename or "(sin nombre)", "reason": problem})
             continue
-        item_id = f"{batch_id}-{index:03d}"
+        item_id = f"{batch_id}-{base_index + offset:03d}"
         stored = batch_dir / f"{item_id}{Path(upload_file.filename or '').suffix.lower()}"
         stored.write_bytes(data)
         items.append(
             {
                 "id": item_id,
+                "upload_id": upload_id,
                 "input_file": upload_file.filename or stored.name,
                 "output_file": sanitize_name(upload_file.filename or stored.name, taken),
                 "stored_path": str(stored),
@@ -144,8 +170,6 @@ async def upload(files: list[UploadFile]):
             }
         )
 
-    batch = {"id": batch_id, "items": items, "rejected": rejected, "processing": False}
-    STATE[batch_id] = batch
     save_batch(batch)
     return public_batch(batch_id)
 

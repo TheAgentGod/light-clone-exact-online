@@ -157,17 +157,38 @@ async function upload(files) {
   showError(null);
   state.busy = true;
   render();
-  try {
+  const selected = Array.from(files);
+  const batchId = state.batch && !state.batch.processing
+    ? state.batch.id
+    : crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  const failed = [];
+
+  for (let index = 0; index < selected.length; index++) {
+    const file = selected[index];
     const form = new FormData();
-    Array.from(files).forEach((f) => form.append("files", f));
-    state.batch = await jsonFetch("/api/upload", { method: "POST", body: form }, 2);
-    localStorage.setItem("lce_batch", state.batch.id);
-  } catch (error) {
-    showError("No se pudieron subir las fotos: " + error.message);
-  } finally {
-    state.busy = false;
-    render();
+    form.append("files", file);
+    const uploadId = crypto.randomUUID();
+    const url =
+      "/api/upload?batch_id=" + encodeURIComponent(batchId) +
+      "&upload_id=" + encodeURIComponent(uploadId);
+    try {
+      state.batch = await jsonFetch(url, { method: "POST", body: form }, 3);
+      localStorage.setItem("lce_batch", state.batch.id);
+      render();
+    } catch (error) {
+      failed.push(file.name + ": " + error.message);
+    }
   }
+
+  if (failed.length) {
+    showError(
+      failed.length === selected.length
+        ? "No se pudieron subir las fotos: " + failed.join(" · ")
+        : "Algunas fotos no se pudieron subir: " + failed.join(" · "),
+    );
+  }
+  state.busy = false;
+  render();
 }
 
 async function process() {
