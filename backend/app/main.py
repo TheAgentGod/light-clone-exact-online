@@ -45,7 +45,7 @@ def save_batch(batch: dict) -> None:
         print(f"[state] no se pudo guardar el lote {batch.get('id')}: {error}")
 
 
-def get_batch(batch_id: str) -> dict:
+def resolve_batch(batch_id: str) -> dict:
     batch = STATE.get(batch_id)
     if batch:
         return batch
@@ -151,7 +151,7 @@ async def upload(files: list[UploadFile]):
 
 
 def public_batch(batch_id: str) -> dict:
-    batch = get_batch(batch_id)
+    batch = resolve_batch(batch_id)
     items = [{k: v for k, v in item.items() if k != "stored_path"} for item in batch["items"]]
     done = sum(1 for i in items if i["status"] == "completada")
     failed = sum(1 for i in items if i["status"] == "error")
@@ -193,7 +193,7 @@ def process_one(item: dict, out_dir: Path) -> None:
 @app.post("/api/batches/{batch_id}/process")
 async def process_batch(batch_id: str):
     require_selftest()
-    batch = get_batch(batch_id)
+    batch = resolve_batch(batch_id)
     if batch["processing"]:
         return public_batch(batch_id)
 
@@ -275,7 +275,7 @@ def build_csv(batch: dict) -> str:
 
 @app.get("/api/download/{batch_id}")
 def download_zip(batch_id: str):
-    batch = get_batch(batch_id)
+    batch = resolve_batch(batch_id)
     out_dir = OUTPUTS / batch_id
     buffer = io.BytesIO()
     # ZIP_STORED: los JPEG viajan sin recomprimir ni alterar un solo byte.
