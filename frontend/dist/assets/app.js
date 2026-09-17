@@ -43,7 +43,8 @@ async function jsonFetch(url, options, tries = 3) {
 
 async function loadHealth() {
   try {
-    const health = await jsonFetch("/api/health");
+    // El servidor gratuito puede tardar en despertar: se reintenta varias veces.
+    const health = await jsonFetch("/api/health", undefined, 6);
     state.blocked = !health.selftest || !health.selftest.ok;
     $("selftest-state").textContent = state.blocked
       ? "FALLO — procesamiento bloqueado"
@@ -63,10 +64,12 @@ async function loadHealth() {
       )
       .join("");
     $("pipeline-line").textContent = health.pipeline || "";
+    if (!state.blocked) showError(null);
   } catch (error) {
     state.blocked = true;
-    $("selftest-state").textContent = "sin respuesta del servidor";
-    showError("El servidor no responde todavia. Espera unos segundos y recarga la pagina.");
+    $("selftest-state").textContent = "esperando al servidor…";
+    showError("El servidor esta despertando. Se vuelve a intentar automaticamente.");
+    setTimeout(() => loadHealth().then(render), 5000);
   }
 }
 
