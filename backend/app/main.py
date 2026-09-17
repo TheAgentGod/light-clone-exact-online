@@ -190,30 +190,55 @@ def process_one(item: dict, out_dir: Path) -> None:
         )
 
 
-@app.post("/api/batches/{batch_id}/process")
-async def process_batch(batch_id: str):
-    require_selftest()
-    batch = resolve_batch(batch_id)
-    if batch["processing"]:
-        return public_batch(batch_id)
+TASKS: dict[str, asyncio.Task] = {}
 
+
+async def run_batch(batch_id: str) -> None:
+    """Procesa el lote en segundo plano: el navegador solo consulta estado."""
+    import gc
+
+    batch = STATE[batch_id]
     out_dir = OUTPUTS / batch_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    batch["processing"] = True
-    pending = [i for i in batch["items"] if i["status"] in ("pendiente", "error")]
+    pending = [i for i in batch["items"] if i["status"] in ("pendiente", "en cola", "error")]
     semaphore = asyncio.Semaphore(CONCURRENCY)
 
     async def run(item: dict) -> None:
         async with semaphore:
             item["status"] = "procesando"
+            item["error_message"] = None
+            save_batch(batch)
             await asyncio.to_thread(process_one, item, out_dir)
+            gc.collect()
             save_batch(batch)
 
     try:
         await asyncio.gather(*(run(item) for item in pending))
+    except Exception as error:  # el lote no queda colgado en "procesando"
+        print(f"[batch] {batch_id} fallo: {error}")
     finally:
+        for item in batch["items"]:
+            if item["status"] in ("procesando", "en cola"):
+                item.update(status="error", error_message="Procesamiento interrumpido")
         batch["processing"] = False
         save_batch(batch)
+        TASKS.pop(batch_id, None)
+
+
+@app.post("/api/batches/{batch_id}/process")
+async def process_batch(batch_id: str):
+    require_selftest()
+    batch = resolve_batch(batch_id)
+    task = TASKS.get(batch_id)
+    if batch["processing"] and task and not task.done():
+        return public_batch(batch_id)
+
+    batch["processing"] = True
+    for item in batch["items"]:
+        if item["status"] in ("pendiente", "error"):
+            item.update(status="en cola", error_message=None)
+    save_batch(batch)
+    TASKS[batch_id] = asyncio.create_task(run_batch(batch_id))
     return public_batch(batch_id)
 
 

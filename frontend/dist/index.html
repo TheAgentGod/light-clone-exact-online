@@ -6,12 +6,60 @@
     <title>Light Clone EXACT v1.1 — procesamiento por lotes</title>
     <meta
       name="description"
-      content="Herramienta interna local para procesar lotes de imagenes con Light Clone EXACT v1.1 y descargar los JPEG originales sin recodificar."
+      content="Herramienta para procesar lotes de imagenes con Light Clone EXACT v1.1 y descargar los JPEG originales sin recodificar."
     />
-    <script type="module" crossorigin src="/assets/index-Bd4KI4Fa.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CVimmFav.css">
+    <link rel="stylesheet" href="/assets/app.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <main>
+      <header>
+        <h1>Light Clone EXACT v1.1 — procesamiento por lotes</h1>
+        <p>
+          El JPEG que devuelve Python es el archivo final: se sirve y se descarga byte a byte, sin
+          recodificar, sin metadata y sin cambiar dimensiones.
+        </p>
+      </header>
+
+      <div class="panel" id="selftest-panel">
+        <strong>Self-test previo</strong> <span id="selftest-state">consultando…</span>
+        <ul class="checks" id="selftest-checks"></ul>
+        <p id="pipeline-line"></p>
+      </div>
+
+      <div class="panel err" id="error-panel" hidden></div>
+
+      <div class="drop" id="drop">
+        <input id="file-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp" hidden />
+        Arrastra imagenes aqui o haz clic para seleccionarlas
+      </div>
+
+      <div class="actions">
+        <button id="btn-process" disabled>Procesar lote</button>
+        <button id="btn-zip" disabled>Descargar ZIP</button>
+        <button id="btn-clear" disabled>Limpiar lote</button>
+      </div>
+
+      <div class="progress" id="progress-line"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ARCHIVO</th>
+            <th>DIMENSIONES</th>
+            <th>ENTRADA</th>
+            <th>SALIDA</th>
+            <th>ESTADO</th>
+            <th>TIEMPO</th>
+            <th>NOMBRE DE SALIDA</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p class="note">
+        apply_light_clone_exact.py · PNG, JPG, JPEG, WEBP · maximo 25 MB por archivo · cada foto
+        tarda alrededor de un minuto; puedes dejar la pestaña abierta.
+      </p>
+    </main>
+    <script src="/assets/app.js"></script>
   </body>
 </html>
