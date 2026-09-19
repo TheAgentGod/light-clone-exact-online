@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from .config import IMAGE_MODEL_VERSION, model_info
 from .files import ALLOWED_EXTS, MAX_FILE_BYTES, check_upload, sanitize_name
 from .pipeline import load_once
 from .selftest import run_selftest
@@ -101,7 +102,14 @@ def health():
         "allowed_extensions": sorted(ALLOWED_EXTS),
         "selftest": SELFTEST,
         "pipeline": "apply_light_clone_exact.py (Light Clone EXACT v1.1)",
+        "image_model_version": IMAGE_MODEL_VERSION,
+        "model": model_info(),
     }
+
+
+@app.get("/api/model")
+def model():
+    return model_info()
 
 
 @app.get("/api/selftest")

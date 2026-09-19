@@ -43,3 +43,35 @@ errores aislados por archivo, descarga en ZIP con `results.csv`.
 - Space de tipo Docker, puerto 7860.
 - Poner el Space en **privado** si el procesamiento no debe ser publico.
 - El almacenamiento es efimero: los resultados se descargan, no se archivan.
+
+## Version del modelo de imagen
+
+La version en uso se declara en `backend/app/config.py`:
+
+```
+image_model_version = v1   (variable de entorno IMAGE_MODEL_VERSION)
+```
+
+Se expone en `GET /api/health` (`image_model_version`) y en `GET /api/model`, y
+se muestra en la pagina.
+
+### Pasar a v2 sin tocar la aplicacion
+
+1. Dejar en `backend/model/` los artefactos nuevos: modelo `.joblib`, mapa de
+   residuo `.npy`, `jpeg_qtables.json` y `verification.json` con sus hashes de
+   referencia y las imagenes de self-test.
+2. Definir las variables de entorno:
+
+```
+IMAGE_MODEL_VERSION=v2
+LIGHT_CLONE_MODEL_FILE=light_clone_v2.joblib
+LIGHT_CLONE_RESIDUAL_FILE=gray_residual_v2.npy
+# opcionales: LIGHT_CLONE_MODEL_DIR, LIGHT_CLONE_QTABLES_FILE, LIGHT_CLONE_VERIFICATION_FILE
+```
+
+3. Reiniciar el servicio. El self-test se ejecuta contra el `verification.json`
+   del modelo nuevo y bloquea el procesamiento si no coincide.
+
+No se modifica ni el pipeline, ni la interfaz, ni el flujo de lotes. El JPEG que
+escribe el motor sigue siendo el archivo final: no se recodifica ni se le añade
+metadata.

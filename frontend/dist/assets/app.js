@@ -64,6 +64,11 @@ async function loadHealth() {
       )
       .join("");
     $("pipeline-line").textContent = health.pipeline || "";
+    const model = health.model || {};
+    $("model-line").textContent =
+      "Modelo de imagen: " +
+      (health.image_model_version || "desconocida") +
+      (model.model_file ? " · " + model.model_file : "");
     if (!state.blocked) showError(null);
   } catch (error) {
     state.blocked = true;

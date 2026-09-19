@@ -24,7 +24,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from .pipeline import MODEL_DIR, apply_exact, qtables
+from .config import MODEL_DIR, VERIFICATION_FILE
+from .pipeline import apply_exact, qtables
 
 
 def sha256_file(path: Path) -> str:
@@ -41,7 +42,7 @@ def run_selftest() -> dict:
         if not passed:
             ok = False
 
-    verification = json.loads((MODEL_DIR / "verification.json").read_text(encoding="utf-8"))
+    verification = json.loads((MODEL_DIR / VERIFICATION_FILE).read_text(encoding="utf-8"))
     Q = qtables()
     expected_q = [Q[k] for k in sorted(Q)]
 

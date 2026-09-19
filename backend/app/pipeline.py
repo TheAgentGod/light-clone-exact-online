@@ -22,7 +22,8 @@ import joblib
 import numpy as np
 from PIL import Image
 
-MODEL_DIR = Path(os.environ.get("LIGHT_CLONE_MODEL_DIR", Path(__file__).resolve().parents[1] / "model"))
+from .config import MODEL_DIR, MODEL_FILE, QTABLES_FILE, RESIDUAL_FILE
+
 
 SIGMAS = [0.8, 2.0, 6.0, 18.0]
 # Radio del kernel de cv2.GaussianBlur para sigma=18 en float32: 4*sigma*2+1 = 145 -> radio 72.
@@ -41,9 +42,9 @@ def load_once() -> None:
     global _model, _gray_res, _qtables
     if _model is not None:
         return
-    _model = joblib.load(MODEL_DIR / "light_clone_v1.joblib")
-    _gray_res = np.load(MODEL_DIR / "gray_residual.npy")
-    with open(MODEL_DIR / "jpeg_qtables.json", "r", encoding="utf-8") as f:
+    _model = joblib.load(MODEL_DIR / MODEL_FILE)
+    _gray_res = np.load(MODEL_DIR / RESIDUAL_FILE)
+    with open(MODEL_DIR / QTABLES_FILE, "r", encoding="utf-8") as f:
         _qtables = {int(k): v for k, v in json.load(f).items()}
 
 
